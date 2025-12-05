@@ -1,12 +1,23 @@
 import os
+import jwt
+from jwt import PyJWKClient
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
-import httpx
 
 app = FastAPI()
 
-CLERK_SECRET_KEY = os.getenv("CLERK_SECRET_KEY")
+# Your Clerk instance's JWKS URL (from your publishable key domain)
+# Extract the domain from pk_test_aW50ZW50LXdhbGxhYnktMTUuY2xlcmsuYWNjb3VudHMuZGV2JA
+# Base64 decodes to: intent-wallaby-15.clerk.accounts.dev
+CLERK_JWKS_URL = "https://intent-wallaby-15.clerk.accounts.dev/.well-known/jwks.json"
+
+jwks_client = None
+
+def get_jwks_client():
+    global jwks_client
+    if jwks_client is None:
+        jwks_client = PyJWKClient(CLERK_JWKS_URL)
+    return jwks_client
 
 @app.get("/health")
 def health_check():
@@ -24,36 +35,27 @@ async def protected_route(request: Request):
     if not auth_header or not auth_header.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing or invalid authorization header")
     
-    session_token = auth_header.split(" ")[1]
+    token = auth_header.split(" ")[1]
     
-    # Verify the session with Clerk's API
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            "https://api.clerk.com/v1/sessions",
-            headers={
-                "Authorization": f"Bearer {CLERK_SECRET_KEY}",
-                "Content-Type": "application/json"
-            }
+    try:
+        # Get the signing key from Clerk's JWKS endpoint
+        signing_key = get_jwks_client().get_signing_key_from_jwt(token)
+        
+        # Verify and decode the JWT
+        payload = jwt.decode(
+            token,
+            signing_key.key,
+            algorithms=["RS256"],
+            options={"verify_aud": False}  # Clerk tokens don't always have aud
         )
         
-        if response.status_code != 200:
-            raise HTTPException(status_code=401, detail="Failed to verify session")
-    
-    return {"message": "You are authenticated!", "status": "success"}
-
-@app.get("/api/user")
-async def get_user(request: Request):
-    """Get user info from session token."""
-    auth_header = request.headers.get("Authorization")
-    
-    if not auth_header or not auth_header.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or invalid authorization header")
-    
-    session_token = auth_header.split(" ")[1]
-    
-    # For a basic test, we'll verify the token exists and return success
-    # In production, you'd decode the JWT and verify it properly
-    if not session_token:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    
-    return {"message": "Token received", "authenticated": True}
+        return {
+            "message": "You are authenticated!",
+            "status": "success",
+            "user_id": payload.get("sub"),
+            "session_id": payload.get("sid")
+        }
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token has expired")
+    except jwt.InvalidTokenError as e:
+        raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")

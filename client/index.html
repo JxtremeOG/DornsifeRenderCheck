@@ -53,9 +53,9 @@
   <body>
     <h1>Clerk Auth Test</h1>
     <div id="auth-root"></div>
-    <div id="controls" style="display: none;">
+    <div id="controls">
       <button onclick="testProtectedEndpoint()">Test Protected Endpoint</button>
-      <button onclick="signOut()">Sign Out</button>
+      <button id="signOutBtn" onclick="signOut()" style="display: none;">Sign Out</button>
     </div>
     <div id="result"></div>
 
@@ -67,7 +67,7 @@
           document.getElementById("auth-root").innerHTML = 
             '<div class="user-info">Signed in as <strong>' + 
             Clerk.user.primaryEmailAddress.emailAddress + '</strong></div>';
-          document.getElementById("controls").style.display = "block";
+          document.getElementById("signOutBtn").style.display = "inline-block";
         } else {
           const signIn = document.createElement("div");
           signIn.setAttribute("data-clerk-sign-in", "");
@@ -82,12 +82,11 @@
         resultDiv.innerText = "Testing...";
 
         try {
-          const token = await Clerk.session.getToken();
-          const response = await fetch("/api/protected", {
-            headers: {
-              "Authorization": "Bearer " + token
-            }
-          });
+          // Get token if signed in, otherwise send no token
+          const token = Clerk.session ? await Clerk.session.getToken() : null;
+          const headers = token ? { "Authorization": "Bearer " + token } : {};
+          
+          const response = await fetch("/api/protected", { headers });
           const data = await response.json();
           
           if (response.ok) {
@@ -95,7 +94,7 @@
             resultDiv.innerText = "SUCCESS!\n\n" + JSON.stringify(data, null, 2);
           } else {
             resultDiv.className = "error";
-            resultDiv.innerText = "ERROR: " + JSON.stringify(data, null, 2);
+            resultDiv.innerText = "ERROR " + response.status + ":\n\n" + JSON.stringify(data, null, 2);
           }
         } catch (err) {
           resultDiv.className = "error";
