@@ -55,6 +55,7 @@
     <div id="auth-root"></div>
     <div id="controls">
       <button onclick="testProtectedEndpoint()">Test Protected Endpoint</button>
+      <button id="sendEmailBtn" onclick="sendTestEmail()" style="display: none;">Send Test Email</button>
       <button id="signOutBtn" onclick="signOut()" style="display: none;">Sign Out</button>
     </div>
     <div id="result"></div>
@@ -68,6 +69,7 @@
             '<div class="user-info">Signed in as <strong>' + 
             Clerk.user.primaryEmailAddress.emailAddress + '</strong></div>';
           document.getElementById("signOutBtn").style.display = "inline-block";
+          document.getElementById("sendEmailBtn").style.display = "inline-block";
         } else {
           const signIn = document.createElement("div");
           signIn.setAttribute("data-clerk-sign-in", "");
@@ -92,6 +94,46 @@
           if (response.ok) {
             resultDiv.className = "success";
             resultDiv.innerText = "SUCCESS!\n\n" + JSON.stringify(data, null, 2);
+          } else {
+            resultDiv.className = "error";
+            resultDiv.innerText = "ERROR " + response.status + ":\n\n" + JSON.stringify(data, null, 2);
+          }
+        } catch (err) {
+          resultDiv.className = "error";
+          resultDiv.innerText = "ERROR: " + err.message;
+        }
+      }
+
+      async function sendTestEmail() {
+        const resultDiv = document.getElementById("result");
+        resultDiv.className = "";
+        resultDiv.innerText = "Sending email...";
+
+        try {
+          const token = Clerk.session ? await Clerk.session.getToken() : null;
+          if (!token) {
+            resultDiv.className = "error";
+            resultDiv.innerText = "ERROR: You must be signed in to send email";
+            return;
+          }
+
+          const response = await fetch("/api/send-email", {
+            method: "POST",
+            headers: {
+              "Authorization": "Bearer " + token,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              to_email: Clerk.user.primaryEmailAddress.emailAddress,
+              subject: "Test Email from Clerk Auth App",
+              content: "Hello! This is a test email sent from the Clerk authentication demo."
+            })
+          });
+          const data = await response.json();
+          
+          if (response.ok) {
+            resultDiv.className = "success";
+            resultDiv.innerText = "EMAIL SENT!\n\n" + JSON.stringify(data, null, 2);
           } else {
             resultDiv.className = "error";
             resultDiv.innerText = "ERROR " + response.status + ":\n\n" + JSON.stringify(data, null, 2);
