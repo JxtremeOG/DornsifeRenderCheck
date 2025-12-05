@@ -1,0 +1,112 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Clerk Auth Test</title>
+    <script
+      async
+      crossorigin="anonymous"
+      data-clerk-publishable-key="pk_test_aW50ZW50LXdhbGxhYnktMTUuY2xlcmsuYWNjb3VudHMuZGV2JA"
+      src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+      type="text/javascript">
+    </script>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        max-width: 600px;
+        margin: 50px auto;
+        padding: 20px;
+      }
+      .user-info {
+        background: #f0f9ff;
+        border: 1px solid #0ea5e9;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+      }
+      button {
+        background: #0ea5e9;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 16px;
+        margin-right: 10px;
+        margin-bottom: 10px;
+      }
+      button:hover {
+        background: #0284c7;
+      }
+      #result {
+        margin-top: 20px;
+        padding: 15px;
+        border-radius: 6px;
+        background: #f1f5f9;
+        white-space: pre-wrap;
+        font-family: monospace;
+      }
+      .success { background: #dcfce7; border: 1px solid #22c55e; }
+      .error { background: #fee2e2; border: 1px solid #ef4444; }
+    </style>
+  </head>
+  <body>
+    <h1>Clerk Auth Test</h1>
+    <div id="auth-root"></div>
+    <div id="controls" style="display: none;">
+      <button onclick="testProtectedEndpoint()">Test Protected Endpoint</button>
+      <button onclick="signOut()">Sign Out</button>
+    </div>
+    <div id="result"></div>
+
+    <script type="text/javascript">
+      window.addEventListener("load", async function () {
+        await Clerk.load();
+
+        if (Clerk.user) {
+          document.getElementById("auth-root").innerHTML = 
+            '<div class="user-info">Signed in as <strong>' + 
+            Clerk.user.primaryEmailAddress.emailAddress + '</strong></div>';
+          document.getElementById("controls").style.display = "block";
+        } else {
+          const signIn = document.createElement("div");
+          signIn.setAttribute("data-clerk-sign-in", "");
+          document.getElementById("auth-root").appendChild(signIn);
+          Clerk.mountSignIn(signIn);
+        }
+      });
+
+      async function testProtectedEndpoint() {
+        const resultDiv = document.getElementById("result");
+        resultDiv.className = "";
+        resultDiv.innerText = "Testing...";
+
+        try {
+          const token = await Clerk.session.getToken();
+          const response = await fetch("/api/protected", {
+            headers: {
+              "Authorization": "Bearer " + token
+            }
+          });
+          const data = await response.json();
+          
+          if (response.ok) {
+            resultDiv.className = "success";
+            resultDiv.innerText = "SUCCESS!\n\n" + JSON.stringify(data, null, 2);
+          } else {
+            resultDiv.className = "error";
+            resultDiv.innerText = "ERROR: " + JSON.stringify(data, null, 2);
+          }
+        } catch (err) {
+          resultDiv.className = "error";
+          resultDiv.innerText = "ERROR: " + err.message;
+        }
+      }
+
+      async function signOut() {
+        await Clerk.signOut();
+        window.location.reload();
+      }
+    </script>
+  </body>
+</html>
