@@ -125,3 +125,22 @@ def send_email(email_request: EmailRequest, request: Request):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to send email: {str(e)}")
+
+@app.get("/db-health")
+def db_health():
+    db_url = os.getenv("DATABASE_URL")
+    if not db_url:
+        raise HTTPException(status_code=500, detail="DATABASE_URL not configured")
+
+    try:
+        # Simple one-off check; fine for a basic service
+        with psycopg.connect(db_url) as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1")
+                row = cur.fetchone()
+        if row == (1,):
+            return {"db_status": "ok"}
+        else:
+            raise HTTPException(status_code=500, detail="Unexpected DB response")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"DB error: {e}")
