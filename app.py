@@ -1,5 +1,6 @@
 import os
 import jwt
+import psycopg
 from jwt import PyJWKClient
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import FileResponse
