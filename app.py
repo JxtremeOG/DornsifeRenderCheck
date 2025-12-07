@@ -1,6 +1,6 @@
 import os
 import jwt
-import psycopg
+import psycopg2
 from jwt import PyJWKClient
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import FileResponse
@@ -135,7 +135,7 @@ def db_health():
 
     try:
         # Simple one-off check; fine for a basic service
-        with psycopg.connect(db_url) as conn:
+        with psycopg2.connect(db_url) as conn:
             with conn.cursor() as cur:
                 cur.execute("SELECT 1")
                 row = cur.fetchone()

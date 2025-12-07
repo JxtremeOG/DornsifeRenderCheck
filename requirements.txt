@@ -3,3 +3,4 @@ uvicorn[standard]
 PyJWT[crypto]
 sendgrid
 pydantic[email]
+psycopg2-binary
